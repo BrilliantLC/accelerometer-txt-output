@@ -13,23 +13,20 @@ import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.graphics.Color;
-import java.io.BufferedWriter;
-import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.util.Arrays;
 import ca.uwaterloo.sensortoy.LineGraphView;
-import java.lang.String;
-import static java.lang.Math.abs;
 import java.io.File;
 
 public class MainActivity extends AppCompatActivity {
     public LineGraphView graph;
     public TextView accel;
     public Button reset;
-
+    public Button resetstp;
+    public int step;
+    public SensorEventListeners al;
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -45,10 +42,19 @@ public class MainActivity extends AppCompatActivity {
         l.addView(graph);
         graph.setVisibility(View.VISIBLE);
         reset = new Button(getApplicationContext());
-        reset.setText("RESET");
+        reset.setText("RESET GRAPH");
         reset.setGravity(Gravity.CENTER_HORIZONTAL);
         l.addView(
                 reset,
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT)
+        );
+        resetstp = new Button(getApplicationContext());
+        resetstp.setText("RESET STEPS");
+        resetstp.setGravity(Gravity.CENTER_HORIZONTAL);
+        l.addView(
+                resetstp,
                 new LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.WRAP_CONTENT,
                         LinearLayout.LayoutParams.WRAP_CONTENT)
@@ -59,7 +65,7 @@ public class MainActivity extends AppCompatActivity {
 
         Sensor accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
         //instantiate sensor listeners
-        SensorEventListener al = new SensorEventListeners(accel, graph);
+       al = new SensorEventListeners(accel, graph, step);
         sensorManager.registerListener(al, accelerometer, SensorManager.SENSOR_DELAY_FASTEST);
 //        reset button
         reset.setOnClickListener(new View.OnClickListener() {
@@ -68,65 +74,71 @@ public class MainActivity extends AppCompatActivity {
                 graph.purge();
             }
         });
+        resetstp.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                al.resetit();
+            }
+        });
+
     }
 }
 
 class SensorEventListeners implements SensorEventListener {
     TextView output;
     LineGraphView Graph;
-    float a, b, c;
-    float max1 = 0, max2 = 0, max3 = 0;
+    float z;
     File file;
     PrintWriter mPrintWriter;
-
-    public SensorEventListeners(TextView outputView, LineGraphView grp) {
+    int counter = 0;
+    int prev = 0;
+    int state= 0;
+    public SensorEventListeners(TextView outputView, LineGraphView grp, int stp) {
         output = outputView;
         Graph = grp;
+        counter = stp;
     }
 
+    public void resetit() {
+        counter = 0;
+    }
     public void onAccuracyChanged(Sensor s, int i) {
     }
 
     public void onSensorChanged(SensorEvent se) {
 
         if (se.sensor.getType() == Sensor.TYPE_LINEAR_ACCELERATION) {
-            String x = String.format("(%.2f, %.2f, %.2f)", se.values[0], se.values[1], se.values[2]);
             Graph.addPoint(se.values);
-            a = se.values[0];
-            b = se.values[1];
-            c = se.values[2];
+
+            z = se.values[2];
 
             try {
-                file = new File(Environment.getExternalStorageDirectory(), "dat.txt");
+                file = new File(Environment.getExternalStorageDirectory(), "data.txt");
                 if (!file.exists()) {
                     file.createNewFile();
                 }
-//                FileOutputStream stream = new FileOutputStream(file);
-//                OutputStreamWriter writer = new OutputStreamWriter(stream);
-//                BufferedWriter buffer = new BufferedWriter(writer);
                 mPrintWriter = new PrintWriter(new FileWriter(file,true));
-                mPrintWriter.println(c);
+                mPrintWriter.println(z);
                 mPrintWriter.close();
             }
             catch(IOException ex){
                 ex.printStackTrace();
             }
 
-//            to find maximum value
-            if (max1 < abs(a) && max2 < abs(b) && max3 < abs(c)) {
-                max1 = abs(a);
-                max2 = abs(b);
-                max3 = abs(c);
-            } else if (max1 < abs(a)) {
-                max1 = abs(a);
-            } else if (max2 < abs(b)) {
-                max2 = abs(b);
-            } else if (max3 < abs(c)) {
-                max3 = abs(c);
+            if(z>=4){
+                state = 1;
+            }else if (z<=-4) {
+                state = 0;
+            }else{
+                state = 2;
             }
-            String AS = String.format("(%.2f, %.2f, %.2f)", max1, max2, max3);
-            output.setText("Accelerometer: \n" + x + "\nMaximum acceleration:\n" + AS + "\n");
+            if(prev==0 && state==1){
+                counter++;
+                prev = state;
+            }else if (prev == 1 && state == 0){
+                prev = state;
+            }
+            output.setText("Number of Steps: " + counter);
         }
-
     }
 }
