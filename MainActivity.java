@@ -27,20 +27,22 @@ public class MainActivity extends AppCompatActivity {
     public Button resetstp;
     public int step;
     public SensorEventListeners al;
+    
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         LinearLayout l = (LinearLayout) findViewById(R.id.linearLayout);
         l.setOrientation(LinearLayout.VERTICAL);
-
+        //pedometer output display
         accel = new TextView(getApplicationContext());
         accel.setTextColor(Color.BLACK);
         l.addView(accel);
-
+        //graph display
         graph = new LineGraphView(getApplicationContext(), 100, Arrays.asList("x", "y", "z"));
         l.addView(graph);
         graph.setVisibility(View.VISIBLE);
+        //reset map button
         reset = new Button(getApplicationContext());
         reset.setText("RESET GRAPH");
         reset.setGravity(Gravity.CENTER_HORIZONTAL);
@@ -50,6 +52,7 @@ public class MainActivity extends AppCompatActivity {
                         LinearLayout.LayoutParams.WRAP_CONTENT,
                         LinearLayout.LayoutParams.WRAP_CONTENT)
         );
+        //reset step count button
         resetstp = new Button(getApplicationContext());
         resetstp.setText("RESET STEPS");
         resetstp.setGravity(Gravity.CENTER_HORIZONTAL);
@@ -60,14 +63,13 @@ public class MainActivity extends AppCompatActivity {
                         LinearLayout.LayoutParams.WRAP_CONTENT)
         );
 
-        //request the sensor manager
+        //request the sensor manager and get the accelerometer
         SensorManager sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
-
         Sensor accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
-        //instantiate sensor listeners
-       al = new SensorEventListeners(accel, graph, step);
+        //instantiate its sensor listener
+        al = new SensorEventListeners(accel, graph, step);
         sensorManager.registerListener(al, accelerometer, SensorManager.SENSOR_DELAY_FASTEST);
-//        reset button
+        //on-click listeners for both buttons
         reset.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -93,25 +95,28 @@ class SensorEventListeners implements SensorEventListener {
     int counter = 0;
     int prev = 0;
     int state= 0;
+    //three constructor parameters
     public SensorEventListeners(TextView outputView, LineGraphView grp, int stp) {
         output = outputView;
         Graph = grp;
         counter = stp;
     }
-
+    //method for resetting the counter for the "resetstp" button
     public void resetit() {
         counter = 0;
     }
+    
     public void onAccuracyChanged(Sensor s, int i) {
     }
-
+    
     public void onSensorChanged(SensorEvent se) {
-
         if (se.sensor.getType() == Sensor.TYPE_LINEAR_ACCELERATION) {
+            //plot the graph
             Graph.addPoint(se.values);
-
+            //we only care about the z component as our algorithm depends on the vertical acceleration
             z = se.values[2];
-
+            
+            /*txt file output with z values to /sdcard/data.txt
             try {
                 file = new File(Environment.getExternalStorageDirectory(), "data.txt");
                 if (!file.exists()) {
@@ -124,21 +129,27 @@ class SensorEventListeners implements SensorEventListener {
             catch(IOException ex){
                 ex.printStackTrace();
             }
-
+            */
+            
+            //threshold = 4 m/s^2
             if(z>=4){
-                state = 1;
+                state = 1;  //state 1, where the acceleration pass 4
             }else if (z<=-4) {
-                state = 0;
+                state = 0;  //state 0, where the acceleration gets below -4
             }else{
-                state = 2;
+                state = 2;  //state 2, where the acceleration is inbetween the boundaries
             }
+            //if acceleration is increasing from -4 to 4
             if(prev==0 && state==1){
-                counter++;
-                prev = state;
+                counter++;  //register as 1 step
+                prev = state;  //sets previous state to the current state
+            //if acceleration is decreasing from 4 to -4
             }else if (prev == 1 && state == 0){
                 prev = state;
             }
+            
             output.setText("Number of Steps: " + counter);
+            
         }
     }
 }
